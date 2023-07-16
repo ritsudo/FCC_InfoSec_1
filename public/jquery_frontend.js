@@ -1,5 +1,7 @@
 $(document).ready(function(){
 	$("#output").hide();
+	$("#like_value").hide();
+	$("#likedBy").hide();
 
 	$("#submit_btn").click(function(){
 		//API REQUEST CODE HERE
@@ -13,6 +15,13 @@ $(document).ready(function(){
 	
 	$("#like_btn").click(function(){
 		//LIKE REQUEST CODE HERE
-		$("#output").show();
+		var reqLikeUrl = "api/setLike/" + $("#stockName").val();
+		$.getJSON(reqLikeUrl, function (result) {
+			$("#like_value").text(result.likeCount);
+			$("#like_heart").attr("style", "color: red;");
+			$("#likedBy").show();
+			$("#like_value").show();
+		});
+
 	});
 });

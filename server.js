@@ -1,5 +1,6 @@
 const express = require('express');
 const https = require('https');
+const bcrypt = require('bcrypt');
 const app = express();
 const port = 80;
 
@@ -9,8 +10,6 @@ app.use('/public', express.static(`${process.cwd()}/public`));
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
-
-// API env test
 
 function getMyFile(url) {
 		return myPromise = new Promise((resolve,reject) => {
@@ -52,15 +51,32 @@ app.get('/api/jsonGet/:stockName', function (req, res) {
 });
 
 app.get('/api/setLike/:stockName', function(req, res) {
+	
+	//HASHEDDBLOCALHOST = SearchDB (compareSync reqIp)
+	
+	var hashedDbLocalhost = "$2b$13$VEVVc012be.4MsGqWWWPf.tvJzMYEPAdkpRaDj.ViuVAZBH3/KX6W";
+	
 	var stockName = req.params.stockName;
-  res.json(
-  { 
-	likeCount: '000',
-	lastLiked: 'no'
-  });
+	
+	var reqIpAddr = req.socket.remoteAddress;
+	
+	var result = bcrypt.compareSync(reqIpAddr, hashedDbLocalhost);
+		if (!result) {
+			var newReqIpAddr = bcrypt.hashSync(reqIpAddr, 13);
+			//ADD TO DB: stockName, ipAddr
+		}
+		
+	var likeCount = 555; //LikeCount = DB.count(stockName)
+	
+	res.json(
+	{ 
+		reqName: stockName,
+		isIpInDb: result,
+		likeCount: likeCount,
+	});
+  
 });
-// End first API endpoint
 
 app.listen(port, () => {
-	console.log('Listening on http://localhost:$(port)');
+	console.log('Listening on http://localhost:'+port);
 });
