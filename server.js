@@ -1,11 +1,46 @@
 const express = require('express');
 const https = require('https');
-const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const mongoose = require('mongoose');
+const fs = require('fs');
 const app = express();
 const port = 80;
 
+//specify mongo URL as MyMongoUrl in appsettings.json
+
+var rawdata = fs.readFileSync('appsettings.json');
+var MDBUrl = JSON.parse(rawdata);
+process.env.MONGO_URI = MDBUrl.MyMongoUrl;
 
 app.use('/public', express.static(`${process.cwd()}/public`));
+
+//MONGOOSE DB
+
+mongoose.connect(process.env.MONGO_URI, {
+	useNewUrlParser: true,
+	useUnifiedTopology: true
+	});
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function() {
+	console.log("# Connected to MongoDB sucessfully");
+});
+
+const likeSchema = new mongoose.Schema({
+	name: {type: String, required:true },
+	likedBy: {type: String, required:true }
+});
+
+const Like = mongoose.model("Like", likeSchema);
+
+var createRecord = function(myName, myIp) {
+	var myRecord = new Like({name: myName, likedBy: myIp});
+	myRecord.save().then(result => {
+		console.log(result);
+	});
+}
+
+//END MONGOOSE DB
 
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
@@ -52,28 +87,37 @@ app.get('/api/jsonGet/:stockName', function (req, res) {
 
 app.get('/api/setLike/:stockName', function(req, res) {
 	
-	//HASHEDDBLOCALHOST = SearchDB (compareSync reqIp)
-	
-	var hashedDbLocalhost = "$2b$13$VEVVc012be.4MsGqWWWPf.tvJzMYEPAdkpRaDj.ViuVAZBH3/KX6W";
-	
 	var stockName = req.params.stockName;
-	
 	var reqIpAddr = req.socket.remoteAddress;
+	var reqIpAddrHashed = crypto.createHash('md5').update(reqIpAddr).digest("hex");
+	var salt = "aQgW4";
+	var reqIpAddrHashedSalted = reqIpAddrHashed + salt;
 	
-	var result = bcrypt.compareSync(reqIpAddr, hashedDbLocalhost);
-		if (!result) {
-			var newReqIpAddr = bcrypt.hashSync(reqIpAddr, 13);
-			//ADD TO DB: stockName, ipAddr
+	Like.findOne(
+	{
+		name: stockName,
+		likedBy: reqIpAddrHashedSalted
 		}
-		
-	var likeCount = 555; //LikeCount = DB.count(stockName)
-	
-	res.json(
-	{ 
-		reqName: stockName,
-		isIpInDb: result,
-		likeCount: likeCount,
-	});
+	)
+		.then((docs)=>{
+			if (!docs) {
+				createRecord(stockName, reqIpAddrHashedSalted);
+			}
+			Like.countDocuments(
+				{
+				name: stockName
+				})
+				.then((docsResult)=>{
+					res.json(
+						{
+						likeCount: docsResult
+						});
+				})
+				.catch((err)=>{console.log(err)});
+		})
+		.catch((err)=>{
+			console.log(err);
+		});
   
 });
 
